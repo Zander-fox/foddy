@@ -1,6 +1,6 @@
 /* Foddy: guarda la app en el dispositivo para que abra sin conexión.
    Las llamadas a Anthropic nunca pasan por aquí: solo se tratan archivos de la propia app. */
-const CACHE = 'foddy-v2';
+const CACHE = 'foddy-v3';
 const SHELL = [
   './', 'index.html', 'styles.css', 'app.js', 'manifest.webmanifest',
   'icons/icon.svg', 'icons/icon-180.png', 'icons/icon-192.png', 'icons/icon-512.png'

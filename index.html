@@ -31,7 +31,8 @@
 
   <div class="tabs" role="tablist" aria-label="Secciones">
     <button class="tab" role="tab" id="tab-menu" aria-controls="panel-menu" aria-selected="true" type="button">Menú</button>
-    <button class="tab" role="tab" id="tab-modelos" aria-controls="panel-modelos" aria-selected="false" type="button">Platos modelo</button>
+    <button class="tab" role="tab" id="tab-calendario" aria-controls="panel-calendario" aria-selected="false" type="button">Calendario</button>
+    <button class="tab" role="tab" id="tab-modelos" aria-controls="panel-modelos" aria-selected="false" type="button">Platos</button>
     <button class="tab" role="tab" id="tab-ajustes" aria-controls="panel-ajustes" aria-selected="false" type="button">Ajustes</button>
   </div>
 
@@ -78,6 +79,10 @@
     </div>
 
     <div id="resultado"></div>
+  </section>
+
+  <section class="panel" id="panel-calendario" role="tabpanel" aria-labelledby="tab-calendario" hidden>
+    <div id="calendario" class="cal"></div>
   </section>
 
   <section class="panel" id="panel-modelos" role="tabpanel" aria-labelledby="tab-modelos" hidden>

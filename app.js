@@ -46,11 +46,10 @@
   /* ---------- Estado y almacenamiento (solo en este dispositivo) ---------- */
   function blank() {
     return {
-      v: 1,
+      v: 2,
       settings: { edad: '2 años', alergias: '', aversiones: '', desayunoMeriendaG: '', tope: 16, tiempo: '', pediatra: '' },
       modelos: [],
-      historial: [],
-      ultimo: null
+      semanas: {}
     };
   }
   function merge(src) {
@@ -58,8 +57,16 @@
     if (src && typeof src === 'object') {
       if (src.settings && typeof src.settings === 'object') Object.assign(out.settings, src.settings);
       if (Array.isArray(src.modelos)) out.modelos = src.modelos;
-      if (Array.isArray(src.historial)) out.historial = src.historial;
-      if (src.ultimo && typeof src.ultimo === 'object') out.ultimo = src.ultimo;
+      if (src.semanas && typeof src.semanas === 'object') {
+        Object.keys(src.semanas).forEach(function (k) {
+          var s = src.semanas[k];
+          if (/^\d{4}-\d{2}-\d{2}$/.test(k) && s && s.resultado && Array.isArray(s.resultado.dias)) out.semanas[k] = s;
+        });
+      }
+      // Versión anterior: un único «último menú»
+      if (src.ultimo && src.ultimo.semana && src.ultimo.resultado && Array.isArray(src.ultimo.resultado.dias) && !out.semanas[src.ultimo.semana]) {
+        out.semanas[src.ultimo.semana] = { generado: null, festivos: [], resultado: src.ultimo.resultado };
+      }
     }
     return out;
   }
@@ -92,6 +99,42 @@
   var weekStart = defaultMonday();
   var festivos = new Set();
   function dayDate(i) { var d = new Date(weekStart); d.setDate(d.getDate() + i); return d; }
+  function semanaIso() { return isoDate(weekStart); }
+  // Cambia la semana de trabajo y recupera sus festivos si ya tiene un menú guardado.
+  function seleccionarSemana(d) {
+    weekStart = mondayOf(d);
+    var g = state.semanas[isoDate(weekStart)];
+    festivos = new Set(g ? arr(g.festivos) : []);
+  }
+  // Platos de las cuatro semanas guardadas anteriores a la que se planifica, para variar.
+  function historialReciente() {
+    var actual = semanaIso();
+    return Object.keys(state.semanas).filter(function (k) { return k < actual; }).sort().reverse().slice(0, 4).map(function (k) {
+      var platos = [];
+      arr(state.semanas[k].resultado.dias).forEach(function (x) {
+        if (x.comida && x.comida.nombre) platos.push(x.comida.nombre);
+        if (x.cena && x.cena.nombre) platos.push(x.cena.nombre);
+      });
+      return { semana: k, platos: platos };
+    });
+  }
+  // Conserva como máximo dos años de menús.
+  function podarSemanas() {
+    Object.keys(state.semanas).sort().reverse().slice(104).forEach(function (k) { delete state.semanas[k]; });
+  }
+  // Asigna cada día del menú a su fecha real, sin fiarse de la fecha que devuelva el modelo.
+  function anclar(res, inicio) {
+    var dias = [];
+    for (var i = 0; i < 7; i++) {
+      var d = new Date(inicio); d.setDate(d.getDate() + i);
+      var iso = isoDate(d);
+      var x = res.dias.filter(function (y) { return y.fecha === iso; })[0] || (res.dias.length === 7 ? res.dias[i] : null);
+      if (x) dias.push(Object.assign({}, x, { dia: DIAS[i], fecha: iso }));
+    }
+    if (!dias.length) throw { code: 'invalid_json' };
+    res.dias = dias;
+    return res;
+  }
 
   function renderWeek() {
     $('#fecha').value = isoDate(weekStart);
@@ -117,9 +160,9 @@
     if (!v) return;
     var d = new Date(v + 'T12:00:00');
     if (isNaN(d.getTime())) return;
-    weekStart = mondayOf(d);
-    festivos.clear();
+    seleccionarSemana(d);
     renderWeek();
+    renderResultado(false);
   });
 
   /* ---------- Fotos del menú del cole ---------- */
@@ -250,13 +293,14 @@
   });
 
   /* ---------- Pestañas ---------- */
-  var TABS = ['menu', 'modelos', 'ajustes'];
+  var TABS = ['menu', 'calendario', 'modelos', 'ajustes'];
   function selectTab(name) {
     TABS.forEach(function (t) {
       $('#tab-' + t).setAttribute('aria-selected', String(t === name));
       $('#panel-' + t).hidden = t !== name;
     });
     if (name === 'menu') renderResultado(false);
+    if (name === 'calendario') renderCalendario();
     window.scrollTo(0, 0);
   }
   TABS.forEach(function (t) { $('#tab-' + t).addEventListener('click', function () { selectTab(t); }); });
@@ -359,8 +403,9 @@
     var modelos = state.modelos.length
       ? state.modelos.map(function (m) { return '- ' + m.nombre + (m.notas ? ': ' + m.notas : ''); }).join('\n')
       : '(ninguno todavía)';
-    var hist = state.historial.length
-      ? state.historial.map(function (x) { return '- Semana del ' + x.semana + ': ' + arr(x.platos).join('; '); }).join('\n')
+    var previas = historialReciente();
+    var hist = previas.length
+      ? previas.map(function (x) { return '- Semana del ' + x.semana + ': ' + arr(x.platos).join('; '); }).join('\n')
       : '(sin historial)';
     var cole = '';
     if (nFotos) cole += 'Se adjuntan ' + nFotos + ' imagen(es) con el menú del colegio de esta semana. Léelas con atención y no completes con suposiciones lo que no se lea.\n';
@@ -458,7 +503,25 @@
   }
   $('#btnParar').addEventListener('click', function () { if (ctl) ctl.abort(); });
 
-  $('#btnGenerar').addEventListener('click', async function () {
+  var confirmarSustituir = false, confirmTimer = null;
+  function textoBotonGenerar() {
+    $('#btnGenerar').textContent = confirmarSustituir ? 'Confirmar: sustituir el menú guardado'
+      : state.semanas[semanaIso()] ? 'Generar de nuevo esta semana' : 'Generar menú de la semana';
+  }
+  $('#btnGenerar').addEventListener('click', function () {
+    if (state.semanas[semanaIso()] && !confirmarSustituir) {
+      confirmarSustituir = true;
+      textoBotonGenerar();
+      showEstado('Esta semana ya tiene un menú guardado. Pulsa de nuevo para sustituirlo.', 'warn');
+      confirmTimer = setTimeout(function () { confirmarSustituir = false; textoBotonGenerar(); showEstado(''); }, 4000);
+      return;
+    }
+    clearTimeout(confirmTimer);
+    confirmarSustituir = false;
+    generar();
+  });
+
+  async function generar() {
     if (!apiKey) { selectTab('ajustes'); $('#claveMsg').textContent = 'Primero guarda tu clave de API.'; return; }
     var hayCole = [0, 1, 2, 3, 4].some(function (i) { return !festivos.has(i); });
     var texto = $('#textoCole').value.trim();
@@ -467,6 +530,11 @@
       showEstado('Añade una foto o pega el texto del menú del colegio para empezar.', 'warn');
       return;
     }
+    // La semana y los festivos se fijan ahora, aunque se cambie la fecha mientras se genera.
+    var inicio = new Date(weekStart);
+    var semana = isoDate(inicio);
+    var fest = Array.from(festivos);
+    var instrucciones = buildPrompt(texto, nota, fotos.length);
     ctl = new AbortController();
     setBusy(true);
     var estadoFinal = null;
@@ -477,23 +545,24 @@
         try { data = await prepararImagen(fotos[i]); } catch (e) { throw { code: 'imagen' }; }
         content.push({ type: 'image', source: { type: 'base64', media_type: 'image/jpeg', data: data } });
       }
-      content.push({ type: 'text', text: buildPrompt(texto, nota, fotos.length) });
+      content.push({ type: 'text', text: instrucciones });
       var respuesta = await pedirMenu(content, ctl.signal, function (n) { if (setBusy.onProgreso) setBusy.onProgreso(n); });
-      var res = normalizar(extraerJson(respuesta));
-      var semana = isoDate(weekStart);
-      var platos = [];
-      res.dias.forEach(function (x) { if (x.comida && x.comida.nombre) platos.push(x.comida.nombre); if (x.cena && x.cena.nombre) platos.push(x.cena.nombre); });
-      state.historial = [{ semana: semana, platos: platos }].concat(state.historial.filter(function (x) { return x.semana !== semana; })).slice(0, 4);
-      state.ultimo = { semana: semana, resultado: res };
+      var res = anclar(normalizar(extraerJson(respuesta)), inicio);
+      state.semanas[semana] = { generado: new Date().toISOString(), festivos: fest, resultado: res };
+      podarSemanas();
       touch();
+      seleccionarSemana(inicio);
+      renderWeek();
       renderResultado(true);
+      renderCalendario();
     } catch (e) {
       estadoFinal = { msg: textoError(e), kind: e && e.name === 'AbortError' ? '' : 'bad' };
     } finally {
       setBusy(false);
+      textoBotonGenerar();
       showEstado(estadoFinal ? estadoFinal.msg : '', estadoFinal ? estadoFinal.kind : '');
     }
-  });
+  }
 
   /* ---------- Resultado ---------- */
   var ICON_OK = '<svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="10" cy="10" r="8"/><path d="M6.5 10.5l2.5 2.5 4.5-5"/></svg>';
@@ -511,23 +580,57 @@
   }
   function dayTotal(x, dm) { return ((x.cole && x.cole.g) || 0) + ((x.comida && x.comida.g) || 0) + ((x.cena && x.cena.g) || 0) + dm; }
 
+  // Tarjeta de un día: la usan la vista de la semana y el calendario.
+  function tarjetaDia(x, dm, tope) {
+    var total = dayTotal(x, dm);
+    var ratio = tope > 0 ? total / tope : 0;
+    var kind = ratio > 1 ? 'bad' : ratio > 0.85 ? 'warn' : '';
+    var stateTxt = ratio > 1 ? 'Supera el tope' : ratio > 0.85 ? 'Cerca del tope' : 'Dentro del tope';
+    var f = new Date(x.fecha + 'T12:00:00');
+    var cab = h('div', { class: 'day-top' }, h('h3', { text: x.dia + (isNaN(f.getTime()) ? '' : ' ' + dfCorto.format(f)) }),
+      h('span', { class: 'tag', text: x.cole ? 'Día de cole' : 'Comida y cena en casa' }));
+    if (x.fecha === isoDate(new Date())) cab.append(chip('Hoy', 'season'));
+    var card = h('article', { class: 'day-card' }, cab,
+      h('div', { class: 'meter-wrap' },
+        h('div', { class: 'meter-text' }, h('span', null, 'Proteína animal del día ', h('b', { text: '≈ ' + nf.format(total) + ' de ' + nf.format(tope) + ' g' })),
+          h('span', { class: 'state-' + (kind || 'ok'), text: stateTxt })),
+        h('div', { class: 'meter ' + kind, role: 'img', 'aria-label': 'Proteína animal ' + nf.format(total) + ' gramos de ' + nf.format(tope) }, h('i', { style: 'width:' + Math.min(100, Math.round(ratio * 100)) + '%' }))));
+    if (x.cole) {
+      card.append(h('div', { class: 'meal cole' }, h('div', { class: 'meal-label', text: 'Colegio (comida)' }),
+        h('div', { class: 'meal-name', text: x.cole.nombre || 'Sin leer' }), h('div', { class: 'chips' }, chip('Estimado ' + fmtG(x.cole.g)))));
+    }
+    if (dm > 0) {
+      card.append(h('div', { class: 'meal cole' }, h('div', { class: 'meal-label', text: 'Desayuno y merienda (ajustes)' }), h('div', { class: 'chips' }, chip(fmtG(dm)))));
+    }
+    if (x.comida) card.append(mealBlock('Comida', x.comida));
+    if (x.cena) card.append(mealBlock('Cena', x.cena));
+    if (x.temporada.length) card.append(h('div', { class: 'chips' }, x.temporada.map(function (t) { return chip('De temporada: ' + t, 'season'); })));
+    return card;
+  }
+
   function renderResultado(scroll) {
     var box = $('#resultado');
     box.textContent = '';
-    if (!state.ultimo || !state.ultimo.resultado) {
-      box.append(h('div', { class: 'block' }, h('h2', { text: 'Tu menú aparecerá aquí' }),
-        h('p', { class: 'hint', text: 'Elige la semana, sube el menú del colegio y pulsa «Generar menú de la semana». Antes de empezar, revisa los datos de tu hija en Ajustes.' })));
+    textoBotonGenerar();
+    var inicioIso = semanaIso();
+    var g = state.semanas[inicioIso];
+    if (!g) {
+      box.append(h('div', { class: 'block' }, h('h2', { text: 'Sin menú guardado para esta semana' }),
+        h('p', { class: 'hint', text: 'Sube el menú del colegio y pulsa «Generar menú de la semana». Cada menú se guarda en su semana y podrás consultarlo en el calendario.' }),
+        h('button', { class: 'btn line small', type: 'button', text: 'Ver el calendario', style: 'justify-self:start', onclick: function () { selectTab('calendario'); } })));
       return;
     }
-    var res = state.ultimo.resultado;
+    var res = g.resultado;
     var tope = numOr(state.settings.tope, 16);
     var dm = numOr(state.settings.desayunoMeriendaG, 0);
     var over = res.dias.filter(function (x) { return dayTotal(x, dm) > tope; });
-    var ini = new Date(state.ultimo.semana + 'T12:00:00');
+    var gen = g.generado ? new Date(g.generado) : null;
+    var cuando = 'Semana del ' + dfDia.format(weekStart) + ' al ' + dfDia.format(dayDate(6)) +
+      (gen && !isNaN(gen.getTime()) ? ' · generado el ' + dfCorto.format(gen) : '');
 
     box.append(h('div', { class: 'res-head' },
       h('h2', { text: 'Menú de la semana' }),
-      isNaN(ini.getTime()) ? null : h('p', { class: 'when', text: 'Semana del ' + dfDia.format(ini) + ' · generado con los ajustes actuales' }),
+      h('p', { class: 'when', text: cuando }),
       res.resumen ? h('p', { text: res.resumen }) : null));
 
     if (res.preguntas.length) {
@@ -543,36 +646,29 @@
     }
 
     var list = h('div', { style: 'display:grid;gap:16px;margin-top:16px' });
-    res.dias.forEach(function (x) {
-      var total = dayTotal(x, dm);
-      var ratio = tope > 0 ? total / tope : 0;
-      var kind = ratio > 1 ? 'bad' : ratio > 0.85 ? 'warn' : '';
-      var stateTxt = ratio > 1 ? 'Supera el tope' : ratio > 0.85 ? 'Cerca del tope' : 'Dentro del tope';
-      var f = new Date(x.fecha + 'T12:00:00');
-      var card = h('article', { class: 'day-card' },
-        h('div', { class: 'day-top' }, h('h3', { text: x.dia + (isNaN(f.getTime()) ? '' : ' ' + dfCorto.format(f)) }),
-          h('span', { class: 'tag', text: x.cole ? 'Día de cole' : 'Comida y cena en casa' })),
-        h('div', { class: 'meter-wrap' },
-          h('div', { class: 'meter-text' }, h('span', null, 'Proteína animal del día ', h('b', { text: '≈ ' + nf.format(total) + ' de ' + nf.format(tope) + ' g' })),
-            h('span', { class: 'state-' + (kind || 'ok'), text: stateTxt })),
-          h('div', { class: 'meter ' + kind, role: 'img', 'aria-label': 'Proteína animal ' + nf.format(total) + ' gramos de ' + nf.format(tope) }, h('i', { style: 'width:' + Math.min(100, Math.round(ratio * 100)) + '%' }))));
-      if (x.cole) {
-        card.append(h('div', { class: 'meal cole' }, h('div', { class: 'meal-label', text: 'Colegio (comida)' }),
-          h('div', { class: 'meal-name', text: x.cole.nombre || 'Sin leer' }), h('div', { class: 'chips' }, chip('Estimado ' + fmtG(x.cole.g)))));
-      }
-      if (dm > 0) {
-        card.append(h('div', { class: 'meal cole' }, h('div', { class: 'meal-label', text: 'Desayuno y merienda (ajustes)' }), h('div', { class: 'chips' }, chip(fmtG(dm)))));
-      }
-      if (x.comida) card.append(mealBlock('Comida', x.comida));
-      if (x.cena) card.append(mealBlock('Cena', x.cena));
-      if (x.temporada.length) card.append(h('div', { class: 'chips' }, x.temporada.map(function (t) { return chip('De temporada: ' + t, 'season'); })));
-      list.append(card);
-    });
+    res.dias.forEach(function (x) { list.append(tarjetaDia(x, dm, tope)); });
     box.append(list);
 
+    var armed = false, t = null;
+    var borrar = h('button', {
+      class: 'btn line', type: 'button', text: 'Borrar este menú',
+      onclick: function () {
+        if (!armed) {
+          armed = true; borrar.textContent = '¿Seguro? Toca otra vez';
+          t = setTimeout(function () { armed = false; borrar.textContent = 'Borrar este menú'; }, 3500);
+          return;
+        }
+        clearTimeout(t);
+        delete state.semanas[inicioIso];
+        touch();
+        seleccionarSemana(weekStart);
+        renderWeek(); renderResultado(false); renderCalendario();
+      }
+    });
     box.append(h('div', { class: 'row', style: 'margin-top:16px' },
       h('button', { class: 'btn secondary', type: 'button', text: 'Copiar menú', onclick: function (e) { copiar(textoMenu(res, dm), e.currentTarget, '#copiaMsg'); } }),
-      h('button', { class: 'btn line', type: 'button', text: 'Generar otra versión', onclick: function () { $('#btnGenerar').click(); } })));
+      h('button', { class: 'btn line', type: 'button', text: 'Generar otra versión', onclick: function () { generar(); } }),
+      borrar));
     box.append(h('p', { class: 'hint', id: 'copiaMsg', role: 'status' }));
 
     if (res.comprobaciones.length) {
@@ -594,16 +690,16 @@
     if (scroll) box.scrollIntoView({ behavior: matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth', block: 'start' });
   }
 
-  function textoMenu(res, dm) {
-    var out = ['MENÚ DE LA SEMANA'];
-    res.dias.forEach(function (x) {
-      out.push('', x.dia.toUpperCase() + (x.fecha ? ' (' + x.fecha + ')' : ''));
-      if (x.cole) out.push('Cole: ' + x.cole.nombre);
-      if (x.comida) out.push('Comida: ' + x.comida.nombre + (x.comida.ingredientes.length ? ' — ' + x.comida.ingredientes.join(', ') : ''));
-      if (x.cena) out.push('Cena: ' + x.cena.nombre + (x.cena.ingredientes.length ? ' — ' + x.cena.ingredientes.join(', ') : ''));
-      out.push('Proteína animal del día: ' + fmtG(dayTotal(x, dm)));
-    });
+  function textoDia(x, dm) {
+    var out = [x.dia.toUpperCase() + (x.fecha ? ' (' + x.fecha + ')' : '')];
+    if (x.cole) out.push('Cole: ' + x.cole.nombre);
+    if (x.comida) out.push('Comida: ' + x.comida.nombre + (x.comida.ingredientes.length ? ' — ' + x.comida.ingredientes.join(', ') : ''));
+    if (x.cena) out.push('Cena: ' + x.cena.nombre + (x.cena.ingredientes.length ? ' — ' + x.cena.ingredientes.join(', ') : ''));
+    out.push('Proteína animal del día: ' + fmtG(dayTotal(x, dm)));
     return out.join('\n');
+  }
+  function textoMenu(res, dm) {
+    return 'MENÚ DE LA SEMANA\n\n' + res.dias.map(function (x) { return textoDia(x, dm); }).join('\n\n');
   }
   function textoCompra(res) {
     var out = ['LISTA DE LA COMPRA'];
@@ -628,6 +724,82 @@
     } catch (e) { fallback(); }
   }
 
+  /* ---------- Calendario ---------- */
+  var dfMes = new Intl.DateTimeFormat('es-ES', { month: 'long', year: 'numeric' });
+  var dfLargo = new Intl.DateTimeFormat('es-ES', { weekday: 'long', day: 'numeric', month: 'long' });
+  function mayus(s) { return s.charAt(0).toUpperCase() + s.slice(1); }
+  var calMes = new Date(); calMes.setHours(12, 0, 0, 0); calMes.setDate(1);
+  var calSel = isoDate(new Date());
+
+  // Busca el menú guardado de un día concreto dentro de su semana.
+  function menuDelDia(iso) {
+    var g = state.semanas[isoDate(mondayOf(new Date(iso + 'T12:00:00')))];
+    if (!g) return null;
+    return g.resultado.dias.filter(function (y) { return y.fecha === iso; })[0] || null;
+  }
+  function abrirSemana(d) { seleccionarSemana(d); renderWeek(); selectTab('menu'); }
+
+  function renderCalendario() {
+    var box = $('#calendario');
+    box.textContent = '';
+    var tope = numOr(state.settings.tope, 16);
+    var dm = numOr(state.settings.desayunoMeriendaG, 0);
+    var hoy = isoDate(new Date());
+
+    var cab = h('div', { class: 'cal-head' },
+      h('button', { class: 'btn line small', type: 'button', 'aria-label': 'Mes anterior', onclick: function () { calMes = new Date(calMes.getFullYear(), calMes.getMonth() - 1, 1, 12); renderCalendario(); } }, '‹'),
+      h('h2', { text: mayus(dfMes.format(calMes)) }),
+      h('button', { class: 'btn line small', type: 'button', 'aria-label': 'Mes siguiente', onclick: function () { calMes = new Date(calMes.getFullYear(), calMes.getMonth() + 1, 1, 12); renderCalendario(); } }, '›'));
+    var cabDias = h('div', { class: 'cal-wd', 'aria-hidden': 'true' }, DIAS_C.map(function (c) { return h('span', { text: c }); }));
+    var grid = h('div', { class: 'cal-grid' });
+    var ultimo = new Date(calMes.getFullYear(), calMes.getMonth() + 1, 0, 12);
+    for (var d = mondayOf(calMes); d <= ultimo || (d.getDay() + 6) % 7 !== 0; d.setDate(d.getDate() + 1)) {
+      (function (dia) {
+        var iso = isoDate(dia);
+        var tiene = !!menuDelDia(iso);
+        var cls = 'cal-day' + (dia.getMonth() !== calMes.getMonth() ? ' fuera' : '') + (iso === hoy ? ' hoy' : '') + (iso === calSel ? ' sel' : '') + (tiene ? ' con' : '');
+        grid.append(h('button', {
+          class: cls, type: 'button', 'aria-pressed': String(iso === calSel),
+          'aria-label': dfLargo.format(dia) + (tiene ? ', con menú' : ', sin menú'),
+          onclick: function () {
+            calSel = iso;
+            if (dia.getMonth() !== calMes.getMonth()) calMes = new Date(dia.getFullYear(), dia.getMonth(), 1, 12);
+            renderCalendario();
+          }
+        }, String(dia.getDate())));
+      })(new Date(d));
+    }
+    box.append(h('div', { class: 'block' }, cab, cabDias, grid,
+      h('div', { class: 'cal-pie' },
+        h('span', { class: 'hint', text: 'El punto marca los días con menú guardado.' }),
+        h('button', { class: 'btn line small', type: 'button', text: 'Ir a hoy', onclick: function () { calMes = new Date(); calMes.setHours(12, 0, 0, 0); calMes.setDate(1); calSel = isoDate(new Date()); renderCalendario(); } }))));
+
+    var selFecha = new Date(calSel + 'T12:00:00');
+    var x = menuDelDia(calSel);
+    var det = h('div', { class: 'cal' }, h('h2', { text: mayus(dfLargo.format(selFecha)) }));
+    if (x) {
+      det.append(tarjetaDia(x, dm, tope));
+      det.append(h('div', { class: 'row' },
+        h('button', { class: 'btn secondary small', type: 'button', text: 'Ver semana completa', onclick: function () { abrirSemana(selFecha); } }),
+        h('button', { class: 'btn line small', type: 'button', text: 'Copiar este día', onclick: function (e) { copiar(textoDia(x, dm), e.currentTarget, '#copiaMsgCal'); } })));
+      det.append(h('p', { class: 'hint', id: 'copiaMsgCal', role: 'status' }));
+    } else {
+      det.append(h('div', { class: 'block' },
+        h('p', { text: 'No hay menú guardado para este día.' }),
+        h('button', { class: 'btn primary small', type: 'button', text: 'Crear el menú de esta semana', style: 'justify-self:start', onclick: function () { abrirSemana(selFecha); } })));
+    }
+    box.append(det);
+
+    var claves = Object.keys(state.semanas).sort().reverse();
+    if (claves.length) {
+      box.append(h('details', null, h('summary', { text: 'Semanas guardadas (' + claves.length + ')' }),
+        h('div', null, claves.map(function (k) {
+          var ini = new Date(k + 'T12:00:00'), fin = new Date(ini); fin.setDate(fin.getDate() + 6);
+          return h('button', { class: 'btn line', type: 'button', text: 'Semana del ' + dfDia.format(ini) + ' al ' + dfDia.format(fin), onclick: function () { abrirSemana(ini); } });
+        }))));
+    }
+  }
+
   /* ---------- Copia de seguridad ---------- */
   $('#btnCopiaGuardar').addEventListener('click', function (e) {
     var copia = JSON.stringify({ app: 'foddy', v: 1, datos: state });
@@ -640,6 +812,7 @@
       if (!j || j.app !== 'foddy' || !j.datos) throw new Error('formato');
       state = merge(j.datos);
       flush();
+      seleccionarSemana(weekStart);
       renderAll();
       $('#copiaTexto').value = '';
       msg.textContent = 'Copia restaurada.';
@@ -650,8 +823,9 @@
 
   /* ---------- Arranque ---------- */
   function renderAll() {
-    renderSettings(); renderWeek(); renderThumbs(); renderModelos(); renderResultado(false);
+    renderSettings(); renderWeek(); renderThumbs(); renderModelos(); renderResultado(false); renderCalendario();
   }
+  seleccionarSemana(weekStart);
   renderAll();
   if ('serviceWorker' in navigator) {
     window.addEventListener('load', function () {
