@@ -1,0 +1,37 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024" role="img" aria-label="Foddy: medio aguacate sonriente">
+  <defs>
+    <radialGradient id="flesh" cx="50%" cy="60%" r="60%">
+      <stop offset="0" stop-color="#F4F8BE"/>
+      <stop offset="0.65" stop-color="#DCEB9C"/>
+      <stop offset="1" stop-color="#BFD97A"/>
+    </radialGradient>
+    <radialGradient id="pit" cx="38%" cy="32%" r="75%">
+      <stop offset="0" stop-color="#C58E5E"/>
+      <stop offset="1" stop-color="#8C5D38"/>
+    </radialGradient>
+    <linearGradient id="bg" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#E8F4EE"/>
+      <stop offset="1" stop-color="#CFE7DC"/>
+    </linearGradient>
+    <path id="shape" d="M512 120 C400 120 332 292 300 424 C255 606 248 704 330 816 C400 912 470 940 512 940 C554 940 624 912 694 816 C776 704 769 606 724 424 C692 292 624 120 512 120 Z"/>
+  </defs>
+  <rect width="1024" height="1024" fill="url(#bg)"/>
+  <g id="art">
+    <ellipse cx="512" cy="958" rx="250" ry="30" fill="#2E5B47" opacity="0.14"/>
+    <use href="#shape" fill="#3E6B2D"/>
+    <use href="#shape" fill="url(#flesh)" transform="translate(512 560) scale(0.865) translate(-512 -560)"/>
+    <circle cx="512" cy="652" r="196" fill="url(#pit)"/>
+    <ellipse cx="440" cy="560" rx="46" ry="26" fill="#E7BC93" opacity="0.65" transform="rotate(-28 440 560)"/>
+    <g fill="#2B2420">
+      <ellipse cx="446" cy="640" rx="19" ry="23"/>
+      <ellipse cx="578" cy="640" rx="19" ry="23"/>
+    </g>
+    <g fill="#FFFFFF">
+      <circle cx="453" cy="631" r="7"/>
+      <circle cx="585" cy="631" r="7"/>
+    </g>
+    <path d="M478 684 Q512 722 546 684" fill="none" stroke="#2B2420" stroke-width="11" stroke-linecap="round"/>
+    <ellipse cx="405" cy="686" rx="28" ry="17" fill="#F28F86" opacity="0.8"/>
+    <ellipse cx="619" cy="686" rx="28" ry="17" fill="#F28F86" opacity="0.8"/>
+  </g>
+</svg>

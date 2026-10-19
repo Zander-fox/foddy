@@ -1,0 +1,182 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; connect-src https://api.anthropic.com; manifest-src 'self'; worker-src 'self'; base-uri 'none'; form-action 'none'">
+<title>Foddy</title>
+<meta name="description" content="Menús semanales saludables para peques, a partir del menú del cole.">
+<meta name="theme-color" content="#EAF4EF" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#0E1621" media="(prefers-color-scheme: dark)">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Foddy">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="format-detection" content="telephone=no">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="apple-touch-icon" href="icons/icon-180.png">
+<link rel="icon" type="image/png" sizes="192x192" href="icons/icon-192.png">
+<link rel="stylesheet" href="styles.css">
+</head>
+<body>
+<div class="wrap">
+  <header class="top">
+    <img class="logo" src="icons/icon-192.png" alt="" width="52" height="52">
+    <div>
+      <h1>Foddy</h1>
+      <p class="sub">Menús sanos para peques a partir del menú del cole.</p>
+    </div>
+  </header>
+  <p class="status" id="status" role="status"></p>
+
+  <div class="tabs" role="tablist" aria-label="Secciones">
+    <button class="tab" role="tab" id="tab-menu" aria-controls="panel-menu" aria-selected="true" type="button">Menú</button>
+    <button class="tab" role="tab" id="tab-modelos" aria-controls="panel-modelos" aria-selected="false" type="button">Platos modelo</button>
+    <button class="tab" role="tab" id="tab-ajustes" aria-controls="panel-ajustes" aria-selected="false" type="button">Ajustes</button>
+  </div>
+
+  <section class="panel" id="panel-menu" role="tabpanel" aria-labelledby="tab-menu">
+    <div class="estado warn" id="avisoClave" hidden>
+      <b>Falta la clave de API.</b> Sin ella no se pueden generar menús.
+      <button class="btn small line" id="irAjustes" type="button" style="margin-top:10px">Ir a Ajustes</button>
+    </div>
+
+    <div class="block">
+      <h2>Semana</h2>
+      <div>
+        <label class="lbl" for="fecha">Cualquier día de la semana que quieres planificar</label>
+        <input type="date" id="fecha">
+        <p class="hint" id="semanaTxt"></p>
+      </div>
+      <div>
+        <span class="lbl" id="diasLbl">Días con colegio</span>
+        <div class="days" id="dias" role="group" aria-labelledby="diasLbl"></div>
+        <p class="hint">Toca un día de colegio si es festivo o no hay cole: ese día se planifican comida y cena. Sábado y domingo siempre son comida y cena.</p>
+      </div>
+    </div>
+
+    <div class="block">
+      <h2>Menú del colegio</h2>
+      <div>
+        <input type="file" id="fotos" class="vh" accept="image/*" multiple>
+        <label for="fotos" class="btn secondary" id="btnFotos">Añadir foto o captura</label>
+        <div class="thumbs" id="thumbs"></div>
+      </div>
+      <div>
+        <label class="lbl" for="textoCole">O pega aquí el texto del menú</label>
+        <textarea id="textoCole" placeholder="Lunes: lentejas con verduras, merluza al horno, fruta…"></textarea>
+      </div>
+      <div>
+        <label class="lbl" for="notaSemana">Algo que tener en cuenta esta semana (opcional)</label>
+        <textarea id="notaSemana" placeholder="Por ejemplo: esta semana ha comido poco pescado, el viernes cenamos fuera…"></textarea>
+      </div>
+      <div class="row">
+        <button class="btn primary" id="btnGenerar" type="button">Generar menú de la semana</button>
+        <button class="btn line" id="btnParar" type="button" hidden>Parar</button>
+      </div>
+      <div class="estado" id="estado" role="status" aria-live="polite" hidden></div>
+    </div>
+
+    <div id="resultado"></div>
+  </section>
+
+  <section class="panel" id="panel-modelos" role="tabpanel" aria-labelledby="tab-modelos" hidden>
+    <div class="block">
+      <h2>Platos modelo</h2>
+      <p class="hint">Añade platos que a vuestra hija le gusten o que os parezcan un buen ejemplo. El menú los usará como inspiración de sabores y texturas, y adaptará lo que haga falta para cumplir las reglas.</p>
+      <div>
+        <label class="lbl" for="mNombre">Nombre del plato</label>
+        <input type="text" id="mNombre" autocomplete="off" placeholder="Crema de calabaza con lentejas rojas">
+      </div>
+      <div>
+        <label class="lbl" for="mNotas">Ingredientes o notas (opcional)</label>
+        <textarea id="mNotas" placeholder="Calabaza, puerro, lentejas rojas, aceite de oliva. Le gusta con textura fina."></textarea>
+      </div>
+      <button class="btn primary" id="btnModelo" type="button">Añadir plato modelo</button>
+      <p class="hint" id="modeloMsg" role="status"></p>
+    </div>
+    <div class="block">
+      <h2>Tu lista</h2>
+      <div id="listaModelos"></div>
+    </div>
+  </section>
+
+  <section class="panel" id="panel-ajustes" role="tabpanel" aria-labelledby="tab-ajustes" hidden>
+    <div class="block">
+      <h2>Clave de API</h2>
+      <p class="hint">Foddy usa Claude Sonnet 5.5 a través de tu propia clave de API de Anthropic. La clave se guarda solo en este dispositivo y solo se envía a Anthropic.</p>
+      <div>
+        <label class="lbl" for="sClave">Clave de API</label>
+        <input type="password" id="sClave" autocomplete="off" autocapitalize="off" spellcheck="false" placeholder="sk-ant-…">
+      </div>
+      <div class="row">
+        <button class="btn primary" id="btnClave" type="button">Guardar y probar</button>
+        <button class="btn line" id="btnBorrarClave" type="button">Borrar clave</button>
+      </div>
+      <p class="hint" id="claveMsg" role="status"></p>
+    </div>
+    <div class="block">
+      <h2>Datos de la niña</h2>
+      <div>
+        <label class="lbl" for="sEdad">Edad</label>
+        <input type="text" id="sEdad" autocomplete="off" placeholder="2 años y 6 meses">
+      </div>
+      <div>
+        <label class="lbl" for="sAlergias">Alergias e intolerancias</label>
+        <textarea id="sAlergias" placeholder="Ninguna conocida"></textarea>
+      </div>
+      <div>
+        <label class="lbl" for="sAversiones">Alimentos que rechaza</label>
+        <textarea id="sAversiones" placeholder="Por ejemplo: coliflor, pescado azul…"></textarea>
+      </div>
+      <div>
+        <label class="lbl" for="sPediatra">Indicaciones del pediatra (opcional)</label>
+        <textarea id="sPediatra"></textarea>
+      </div>
+    </div>
+    <div class="block">
+      <h2>Proteína animal</h2>
+      <div>
+        <label class="lbl" for="sTope">Tope diario, en gramos</label>
+        <input type="text" id="sTope" inputmode="decimal" autocomplete="off">
+        <p class="hint">Es la cifra que habéis fijado vosotros. No está contrastada con una fuente oficial: conviene confirmarla con el pediatra.</p>
+      </div>
+      <div>
+        <label class="lbl" for="sDesayuno">Proteína animal de desayuno y merienda, en gramos al día</label>
+        <input type="text" id="sDesayuno" inputmode="decimal" autocomplete="off" placeholder="0">
+        <p class="hint">Lácteos, huevo y embutidos cuentan como proteína animal. Si lo dejas vacío se cuenta como 0 y el total real será mayor.</p>
+      </div>
+      <div>
+        <label class="lbl" for="sTiempo">Tiempo para cocinar entre semana (opcional)</label>
+        <input type="text" id="sTiempo" autocomplete="off" placeholder="30 minutos">
+      </div>
+    </div>
+    <div class="block">
+      <h2>Reglas fijas</h2>
+      <ul class="plain">
+        <li>De lunes a viernes con cole, solo cena. Sábados, domingos y festivos, comida y cena.</li>
+        <li>Si la comida lleva proteína animal, la cena prioriza la proteína vegetal.</li>
+        <li>Fruta y verdura de temporada, sin ultraprocesados, azúcares añadidos ni edulcorantes.</li>
+        <li>Texturas seguras para la edad y sin pescados grandes con riesgo de mercurio.</li>
+      </ul>
+    </div>
+    <div class="block">
+      <h2>Copia de seguridad</h2>
+      <p class="hint">Guarda tus ajustes, platos modelo y último menú en un texto que puedes pegar en una nota. No incluye la clave de API.</p>
+      <div class="row">
+        <button class="btn secondary" id="btnCopiaGuardar" type="button">Copiar copia de seguridad</button>
+      </div>
+      <div>
+        <label class="lbl" for="copiaTexto">Restaurar desde una copia</label>
+        <textarea id="copiaTexto" placeholder="Pega aquí el texto de la copia"></textarea>
+      </div>
+      <button class="btn line" id="btnCopiaRestaurar" type="button">Restaurar</button>
+      <p class="hint" id="copiaMsgAjustes" role="status"></p>
+    </div>
+  </section>
+
+  <p class="foot">Las cantidades de proteína son estimaciones, sobre todo las del colegio, cuyas raciones no se conocen. Foddy ayuda a planificar y no sustituye el criterio del pediatra. Al generar un menú, los datos que has introducido se envían a la API de Anthropic.</p>
+</div>
+<script src="app.js"></script>
+</body>
+</html>
