@@ -10,14 +10,14 @@
       <stop offset="1" stop-color="#8C5D38"/>
     </radialGradient>
     <linearGradient id="bg" x1="0" y1="0" x2="0" y2="1">
-      <stop offset="0" stop-color="#E8F4EE"/>
-      <stop offset="1" stop-color="#CFE7DC"/>
+      <stop offset="0" stop-color="#FBF8EF"/>
+      <stop offset="1" stop-color="#ECE6D3"/>
     </linearGradient>
     <path id="shape" d="M512 120 C400 120 332 292 300 424 C255 606 248 704 330 816 C400 912 470 940 512 940 C554 940 624 912 694 816 C776 704 769 606 724 424 C692 292 624 120 512 120 Z"/>
   </defs>
   <rect width="1024" height="1024" fill="url(#bg)"/>
   <g id="art">
-    <ellipse cx="512" cy="958" rx="250" ry="30" fill="#2E5B47" opacity="0.14"/>
+    <ellipse cx="512" cy="958" rx="250" ry="30" fill="#4B5A33" opacity="0.15"/>
     <use href="#shape" fill="#3E6B2D"/>
     <use href="#shape" fill="url(#flesh)" transform="translate(512 560) scale(0.865) translate(-512 -560)"/>
     <circle cx="512" cy="652" r="196" fill="url(#pit)"/>

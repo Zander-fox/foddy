@@ -1,37 +1,37 @@
 /* Foddy: una columna pensada para el iPhone; tres pestañas (Menú, Platos modelo, Ajustes);
    el menú semanal se apila en tarjetas por día con una barra de proteína animal frente al tope diario. */
 :root {
-  --bg: #F2F5F9;
-  --surface: #FFFFFF;
-  --surface-2: #E8EDF4;
-  --ink: #132033;
-  --muted: #566579;
-  --line: #D3DBE6;
-  --accent: #23529E;
+  --bg: #F6F2E7;
+  --surface: #FFFDF8;
+  --surface-2: #ECE7D8;
+  --ink: #1D2A19;
+  --muted: #5A6550;
+  --line: #DAD4C0;
+  --accent: #3E6B2D;
   --accent-ink: #FFFFFF;
-  --accent-soft: #DCE7F6;
-  --ok: #26704F;
-  --ok-soft: #DDEFE6;
-  --warn: #8F5E0E;
-  --warn-soft: #F6E9CF;
+  --accent-soft: #E3EDC4;
+  --ok: #2B6A3A;
+  --ok-soft: #DCEBD3;
+  --warn: #8A5A0B;
+  --warn-soft: #F4E5C2;
   --bad: #A3302A;
-  --bad-soft: #F6DDDA;
+  --bad-soft: #F5DBD6;
   --font: ui-rounded, 'SF Pro Rounded', -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
   color-scheme: light;
 }
 @media (prefers-color-scheme: dark) {
   :root {
-    --bg: #0E1621;
-    --surface: #162130;
-    --surface-2: #1E2B3C;
-    --ink: #E6ECF4;
-    --muted: #9AA9BC;
-    --line: #2A3A4F;
-    --accent: #86B2F2;
-    --accent-ink: #0B1522;
-    --accent-soft: #1D3354;
-    --ok: #5CC39A;
-    --ok-soft: #173A2E;
+    --bg: #11190F;
+    --surface: #1A2418;
+    --surface-2: #243121;
+    --ink: #F1F0E2;
+    --muted: #A9B79A;
+    --line: #334530;
+    --accent: #B3D983;
+    --accent-ink: #12200D;
+    --accent-soft: #2B4023;
+    --ok: #8FD6A0;
+    --ok-soft: #1C3A27;
     --warn: #E3B765;
     --warn-soft: #3C2F14;
     --bad: #F0928B;
