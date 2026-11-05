@@ -30,8 +30,17 @@
       <circle cx="453" cy="631" r="7"/>
       <circle cx="585" cy="631" r="7"/>
     </g>
-    <path d="M478 684 Q512 722 546 684" fill="none" stroke="#2B2420" stroke-width="11" stroke-linecap="round"/>
-    <ellipse cx="405" cy="686" rx="28" ry="17" fill="#F28F86" opacity="0.8"/>
-    <ellipse cx="619" cy="686" rx="28" ry="17" fill="#F28F86" opacity="0.8"/>
+    <path d="M478 700 Q512 738 546 700" fill="none" stroke="#2B2420" stroke-width="11" stroke-linecap="round"/>
+    <ellipse cx="392" cy="702" rx="27" ry="16" fill="#F28F86" opacity="0.8"/>
+    <ellipse cx="632" cy="702" rx="27" ry="16" fill="#F28F86" opacity="0.8"/>
+    <g id="gafas" fill="none" stroke="#241D19" stroke-width="11" stroke-linecap="round" stroke-linejoin="round">
+      <circle cx="446" cy="640" r="48" fill="#FFFFFF" fill-opacity="0.2"/>
+      <circle cx="578" cy="640" r="48" fill="#FFFFFF" fill-opacity="0.2"/>
+      <path d="M494 634 Q512 620 530 634"/>
+      <path d="M398 630 L332 616"/>
+      <path d="M626 630 L692 616"/>
+      <path d="M414 614 A36 36 0 0 1 436 602" stroke="#FFFFFF" stroke-width="7" stroke-opacity="0.85"/>
+      <path d="M546 614 A36 36 0 0 1 568 602" stroke="#FFFFFF" stroke-width="7" stroke-opacity="0.85"/>
+    </g>
   </g>
 </svg>

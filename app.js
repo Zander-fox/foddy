@@ -106,17 +106,40 @@
     var g = state.semanas[isoDate(weekStart)];
     festivos = new Set(g ? arr(g.festivos) : []);
   }
-  // Platos de las cuatro semanas guardadas anteriores a la que se planifica, para variar.
-  function historialReciente() {
-    var actual = semanaIso();
-    return Object.keys(state.semanas).filter(function (k) { return k < actual; }).sort().reverse().slice(0, 4).map(function (k) {
-      var platos = [];
-      arr(state.semanas[k].resultado.dias).forEach(function (x) {
-        if (x.comida && x.comida.nombre) platos.push(x.comida.nombre);
-        if (x.cena && x.cena.nombre) platos.push(x.cena.nombre);
-      });
-      return { semana: k, platos: platos };
+  function platosDeSemana(iso) {
+    var g = state.semanas[iso];
+    if (!g) return null;
+    var platos = [];
+    arr(g.resultado.dias).forEach(function (x) {
+      if (x.comida && x.comida.nombre) platos.push(x.comida.nombre);
+      if (x.cena && x.cena.nombre) platos.push(x.cena.nombre);
     });
+    return platos;
+  }
+  function sumarDias(iso, n) { var d = new Date(iso + 'T12:00:00'); d.setDate(d.getDate() + n); return isoDate(d); }
+  // La semana anterior y la siguiente no pueden repetirse; las de 2 a 4 semanas antes solo sirven para variar.
+  function contextoRepeticion(actualIso) {
+    var previas = [];
+    [2, 3, 4].forEach(function (n) {
+      var p = platosDeSemana(sumarDias(actualIso, -7 * n));
+      if (p && p.length) previas.push({ hace: n, platos: p });
+    });
+    return { anterior: platosDeSemana(sumarDias(actualIso, -7)), siguiente: platosDeSemana(sumarDias(actualIso, 7)), previas: previas };
+  }
+  function norm(s) { return String(s || '').normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase().replace(/\s+/g, ' ').trim(); }
+  // Platos de este menú cuyo nombre coincide con los de la semana anterior o la siguiente.
+  function repetidos(res, actualIso) {
+    var ctx = contextoRepeticion(actualIso), prohibidos = {}, out = [];
+    arr(ctx.anterior).forEach(function (n) { prohibidos[norm(n)] = 'la semana anterior'; });
+    arr(ctx.siguiente).forEach(function (n) { prohibidos[norm(n)] = prohibidos[norm(n)] ? 'las semanas anterior y siguiente' : 'la semana siguiente'; });
+    res.dias.forEach(function (x) {
+      [x.comida, x.cena].forEach(function (p) {
+        if (p && p.nombre && prohibidos[norm(p.nombre)] && !out.some(function (o) { return o.nombre === p.nombre; })) {
+          out.push({ nombre: p.nombre, donde: prohibidos[norm(p.nombre)] });
+        }
+      });
+    });
+    return out;
   }
   // Conserva como máximo dos años de menús.
   function podarSemanas() {
@@ -403,10 +426,12 @@
     var modelos = state.modelos.length
       ? state.modelos.map(function (m) { return '- ' + m.nombre + (m.notas ? ': ' + m.notas : ''); }).join('\n')
       : '(ninguno todavía)';
-    var previas = historialReciente();
-    var hist = previas.length
-      ? previas.map(function (x) { return '- Semana del ' + x.semana + ': ' + arr(x.platos).join('; '); }).join('\n')
-      : '(sin historial)';
+    var rep = contextoRepeticion(semanaIso());
+    var lineasHist = [];
+    if (rep.anterior) lineasHist.push('- SEMANA ANTERIOR (prohibido repetir cualquiera de estos platos o sus variantes): ' + rep.anterior.join('; '));
+    if (rep.siguiente) lineasHist.push('- SEMANA SIGUIENTE, ya guardada (prohibido repetir cualquiera de estos platos o sus variantes): ' + rep.siguiente.join('; '));
+    rep.previas.forEach(function (x) { lineasHist.push('- Hace ' + x.hace + ' semanas (pueden volver a aparecer, pero prioriza la variedad): ' + x.platos.join('; ')); });
+    var hist = lineasHist.length ? lineasHist.join('\n') : '(no hay semanas guardadas alrededor de esta)';
     var cole = '';
     if (nFotos) cole += 'Se adjuntan ' + nFotos + ' imagen(es) con el menú del colegio de esta semana. Léelas con atención y no completes con suposiciones lo que no se lea.\n';
     if (texto) cole += 'Texto del menú del colegio:\n' + texto + '\n';
@@ -426,11 +451,12 @@
         '2. Tope de proteína animal: ' + tope + ' g como máximo al día, sumando colegio, comida, cena y desayuno/merienda fijos. Proteína animal es la de carne, pescado, huevo y lácteos. Estima los gramos con raciones propias de la edad y valores de composición reconocidos (por ejemplo BEDCA) o el etiquetado. Del colegio no se conocen las raciones: estima una ración infantil estándar y devuelve igualmente un número. Si el colegio ya llega o casi llega al tope, pon una cena sin proteína animal.\n' +
         '3. Si la comida (del colegio o de casa) lleva proteína animal, la cena prioriza la proteína vegetal (legumbres, cereales integrales, tofu, cremas de frutos secos o semillas molidas). Si la comida ya es vegetal, la cena puede llevar una ración pequeña animal sin pasar del tope.\n' +
         '4. Complementa el menú del colegio: no repitas su ingrediente principal ni su técnica de cocinado el mismo día ni el día siguiente. Equilibra la semana entre verdura, fruta, legumbres, cereales, pescado, huevo y carne.\n' +
-        '5. Fruta y verdura de temporada en España según el mes de las fechas de la semana. Si dudas de la temporada de un producto, dilo.\n' +
-        '6. Sin ultraprocesados (NOVA 4: embutidos, salchichas, nuggets, galletas, cereales azucarados, zumos envasados, yogures de sabores, salsas comerciales, caldos concentrados), sin azúcares añadidos y sin edulcorantes. Endulza solo con la propia fruta.\n' +
-        '7. Usa los platos modelo como inspiración de sabores y texturas, sin repetir el mismo más de una vez por semana. Si alguno incumple una regla, adáptalo y avísalo en "suposiciones".',
+        '5. Sin repeticiones entre semanas: no repitas de una semana a la siguiente ningún plato, ni una variante del mismo con otro nombre (mismo ingrediente principal y misma preparación), ni un menú diario completo. Entre dos apariciones del mismo plato debe pasar al menos una semana completa. Se aplica a la semana anterior y a la siguiente si ya están guardadas, también a los platos modelo, y dentro de la misma semana tampoco repitas platos.\n' +
+        '6. Fruta y verdura de temporada en España según el mes de las fechas de la semana. Si dudas de la temporada de un producto, dilo.\n' +
+        '7. Sin ultraprocesados (NOVA 4: embutidos, salchichas, nuggets, galletas, cereales azucarados, zumos envasados, yogures de sabores, salsas comerciales, caldos concentrados), sin azúcares añadidos y sin edulcorantes. Endulza solo con la propia fruta.\n' +
+        '8. Usa los platos modelo como inspiración de sabores y texturas, sin repetir el mismo más de una vez por semana. Si alguno incumple una regla, adáptalo y avísalo en "suposiciones".',
       'PLATOS MODELO DE LA FAMILIA:\n' + modelos,
-      'PLATOS DE SEMANAS ANTERIORES (varía respecto a ellos):\n' + hist,
+      'PLATOS DE LAS SEMANAS GUARDADAS ALREDEDOR DE ESTA:\n' + hist,
       'MENÚ DEL COLEGIO:\n' + cole,
       nota ? 'NOTA DE LA FAMILIA PARA ESTA SEMANA:\n' + nota : '',
       'FORMATO DE LA RESPUESTA: responde SOLO con un objeto JSON, sin texto antes ni después, con esta forma:\n' +
@@ -448,7 +474,7 @@
         '  "suposiciones": ["..."],\n' +
         '  "preguntas": ["..."]\n' +
         '}\n' +
-        'Incluye los 7 días en orden. En los días con colegio "comida" es null y "cole" lleva el plato del colegio; en los días en casa "cole" es null y "comida" tiene la misma forma que "cena". Los gramos son números con punto decimal. En "comprobaciones" incluye al menos: tope de proteína animal, relación comida/cena, complemento del colegio, temporada, ausencia de ultraprocesados y azúcares, y seguridad de texturas.'
+        'Incluye los 7 días en orden. En los días con colegio "comida" es null y "cole" lleva el plato del colegio; en los días en casa "cole" es null y "comida" tiene la misma forma que "cena". Los gramos son números con punto decimal. En "comprobaciones" incluye al menos: tope de proteína animal, relación comida/cena, complemento del colegio, temporada, ausencia de ultraprocesados y azúcares, sin repeticiones entre semanas y seguridad de texturas.'
     ].filter(Boolean).join('\n\n');
   }
 
@@ -640,6 +666,12 @@
     if (over.length) {
       box.append(h('div', { class: 'estado bad', style: 'margin-top:12px' },
         'Por encima del tope de ' + nf.format(tope) + ' g: ' + over.map(function (x) { return x.dia; }).join(', ') + '. Revisa esos días o vuelve a generar el menú.'));
+    }
+    var rep = repetidos(res, inicioIso);
+    if (rep.length) {
+      box.append(h('div', { class: 'estado warn', style: 'margin-top:12px' }, h('b', { text: 'Platos repetidos' }),
+        h('p', { text: 'Estos platos ya aparecen en la semana anterior o en la siguiente. Conviene dejar al menos una semana entre repeticiones; prueba con «Generar otra versión».' }),
+        h('ul', { class: 'plain' }, rep.map(function (r) { return h('li', { text: r.nombre + ' (también en ' + r.donde + ')' }); }))));
     }
     if (dm === 0) {
       box.append(h('div', { class: 'estado', style: 'margin-top:12px' }, 'La proteína de desayuno y merienda está en 0 g. Si toma lácteos o huevo, indícalo en Ajustes para que el total sea real.'));
