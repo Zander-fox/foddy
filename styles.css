@@ -208,3 +208,8 @@ details > div { padding-bottom: 14px; display: grid; gap: 10px; }
 .cal-day.sel.con::after { background: var(--accent-ink); }
 .cal-pie { display: flex; align-items: center; justify-content: space-between; gap: 8px; flex-wrap: wrap; }
 .cal-pie .hint { margin: 0; }
+
+/* Instrucciones generales */
+#sInstr { min-height: 176px; }
+.instr-aviso { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px; }
+.instr-aviso .hint { margin: 0; flex: 1 1 200px; }

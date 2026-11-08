@@ -47,7 +47,7 @@
   function blank() {
     return {
       v: 2,
-      settings: { edad: '2 años', alergias: '', aversiones: '', desayunoMeriendaG: '', tope: 16, tiempo: '', pediatra: '' },
+      settings: { edad: '2 años', alergias: '', aversiones: '', desayunoMeriendaG: '', tope: 16, tiempo: '', pediatra: '', instrucciones: '' },
       modelos: [],
       semanas: {}
     };
@@ -235,14 +235,24 @@
   }
 
   /* ---------- Ajustes ---------- */
-  var AJ = { sEdad: 'edad', sAlergias: 'alergias', sAversiones: 'aversiones', sPediatra: 'pediatra', sTope: 'tope', sDesayuno: 'desayunoMeriendaG', sTiempo: 'tiempo' };
+  var AJ = { sInstr: 'instrucciones', sEdad: 'edad', sAlergias: 'alergias', sAversiones: 'aversiones', sPediatra: 'pediatra', sTope: 'tope', sDesayuno: 'desayunoMeriendaG', sTiempo: 'tiempo' };
   function renderSettings() {
     Object.keys(AJ).forEach(function (id) { $('#' + id).value = state.settings[AJ[id]] == null ? '' : state.settings[AJ[id]]; });
     renderClave();
+    renderInstr();
   }
   Object.keys(AJ).forEach(function (id) {
-    $('#' + id).addEventListener('input', function (e) { state.settings[AJ[id]] = e.target.value; touch(); });
+    $('#' + id).addEventListener('input', function (e) { state.settings[AJ[id]] = e.target.value; touch(); if (id === 'sInstr') renderInstr(); });
   });
+  // Muestra en Ajustes el contador y en Menú un recordatorio de que las instrucciones generales se aplican siempre.
+  function renderInstr() {
+    var n = (state.settings.instrucciones || '').trim().length;
+    $('#instrCuenta').textContent = n + ' de 6000 caracteres.';
+    $('#instrResumen').textContent = n
+      ? 'Se aplicarán tus instrucciones generales (' + n + ' caracteres) en todos los menús.'
+      : 'Todavía no has escrito instrucciones generales. Puedes añadirlas en Ajustes.';
+  }
+  $('#irInstr').addEventListener('click', function () { selectTab('ajustes'); $('#sInstr').focus(); });
 
   /* ---------- Clave de API ---------- */
   function renderClave() {
@@ -432,6 +442,7 @@
     if (rep.siguiente) lineasHist.push('- SEMANA SIGUIENTE, ya guardada (prohibido repetir cualquiera de estos platos o sus variantes): ' + rep.siguiente.join('; '));
     rep.previas.forEach(function (x) { lineasHist.push('- Hace ' + x.hace + ' semanas (pueden volver a aparecer, pero prioriza la variedad): ' + x.platos.join('; ')); });
     var hist = lineasHist.length ? lineasHist.join('\n') : '(no hay semanas guardadas alrededor de esta)';
+    var instr = (s.instrucciones || '').trim();
     var cole = '';
     if (nFotos) cole += 'Se adjuntan ' + nFotos + ' imagen(es) con el menú del colegio de esta semana. Léelas con atención y no completes con suposiciones lo que no se lea.\n';
     if (texto) cole += 'Texto del menú del colegio:\n' + texto + '\n';
@@ -455,6 +466,7 @@
         '6. Fruta y verdura de temporada en España según el mes de las fechas de la semana. Si dudas de la temporada de un producto, dilo.\n' +
         '7. Sin ultraprocesados (NOVA 4: embutidos, salchichas, nuggets, galletas, cereales azucarados, zumos envasados, yogures de sabores, salsas comerciales, caldos concentrados), sin azúcares añadidos y sin edulcorantes. Endulza solo con la propia fruta.\n' +
         '8. Usa los platos modelo como inspiración de sabores y texturas, sin repetir el mismo más de una vez por semana. Si alguno incumple una regla, adáptalo y avísalo en "suposiciones".',
+      instr ? 'INSTRUCCIONES GENERALES DE LA FAMILIA (tenlas siempre en cuenta al crear cualquier menú). Si alguna choca con la seguridad (regla 1) o con el tope de proteína animal (regla 2), prevalecen esas dos reglas; si choca con cualquier otra regla, prevalece esta instrucción. En ambos casos avisa del conflicto en "suposiciones".\n' + instr : '',
       'PLATOS MODELO DE LA FAMILIA:\n' + modelos,
       'PLATOS DE LAS SEMANAS GUARDADAS ALREDEDOR DE ESTA:\n' + hist,
       'MENÚ DEL COLEGIO:\n' + cole,
@@ -474,7 +486,7 @@
         '  "suposiciones": ["..."],\n' +
         '  "preguntas": ["..."]\n' +
         '}\n' +
-        'Incluye los 7 días en orden. En los días con colegio "comida" es null y "cole" lleva el plato del colegio; en los días en casa "cole" es null y "comida" tiene la misma forma que "cena". Los gramos son números con punto decimal. En "comprobaciones" incluye al menos: tope de proteína animal, relación comida/cena, complemento del colegio, temporada, ausencia de ultraprocesados y azúcares, sin repeticiones entre semanas y seguridad de texturas.'
+        'Incluye los 7 días en orden. En los días con colegio "comida" es null y "cole" lleva el plato del colegio; en los días en casa "cole" es null y "comida" tiene la misma forma que "cena". Los gramos son números con punto decimal. En "comprobaciones" incluye al menos: tope de proteína animal, relación comida/cena, complemento del colegio, temporada, ausencia de ultraprocesados y azúcares, ' + (instr ? 'sin repeticiones entre semanas, seguridad de texturas y cumplimiento de las instrucciones generales.' : 'sin repeticiones entre semanas y seguridad de texturas.')
     ].filter(Boolean).join('\n\n');
   }
 

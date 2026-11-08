@@ -71,6 +71,10 @@
         <label class="lbl" for="notaSemana">Algo que tener en cuenta esta semana (opcional)</label>
         <textarea id="notaSemana" placeholder="Por ejemplo: esta semana ha comido poco pescado, el viernes cenamos fuera…"></textarea>
       </div>
+      <div class="instr-aviso">
+        <p class="hint" id="instrResumen"></p>
+        <button class="btn line small" id="irInstr" type="button">Editar instrucciones</button>
+      </div>
       <div class="row">
         <button class="btn primary" id="btnGenerar" type="button">Generar menú de la semana</button>
         <button class="btn line" id="btnParar" type="button" hidden>Parar</button>
@@ -119,6 +123,15 @@
         <button class="btn line" id="btnBorrarClave" type="button">Borrar clave</button>
       </div>
       <p class="hint" id="claveMsg" role="status"></p>
+    </div>
+    <div class="block">
+      <h2>Instrucciones generales</h2>
+      <p class="hint">Escribe aquí lo que Foddy debe tener siempre en cuenta al crear cualquier menú: preferencias, costumbres de la casa, cosas que evitar… Se aplican en todas las semanas, junto con las reglas fijas.</p>
+      <div>
+        <label class="lbl" for="sInstr">Instrucciones</label>
+        <textarea id="sInstr" maxlength="6000" placeholder="Por ejemplo: cenas de máximo 25 minutos. Pescado al menos dos veces por semana. Verdura en todas las cenas. Evitar los fritos."></textarea>
+        <p class="hint" id="instrCuenta"></p>
+      </div>
     </div>
     <div class="block">
       <h2>Datos de la niña</h2>
