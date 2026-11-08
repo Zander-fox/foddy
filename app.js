@@ -47,7 +47,7 @@
   function blank() {
     return {
       v: 2,
-      settings: { edad: '2 años', alergias: '', aversiones: '', desayunoMeriendaG: '', tope: 16, tiempo: '', pediatra: '', instrucciones: '' },
+      settings: { edad: '2 años', alergias: '', aversiones: '', tope: 16, tiempo: '', pediatra: '', instrucciones: '' },
       modelos: [],
       semanas: {}
     };
@@ -56,6 +56,7 @@
     var out = blank();
     if (src && typeof src === 'object') {
       if (src.settings && typeof src.settings === 'object') Object.assign(out.settings, src.settings);
+      delete out.settings.desayunoMeriendaG;   // ajuste retirado: se ignora si venía guardado
       if (Array.isArray(src.modelos)) out.modelos = src.modelos;
       if (src.semanas && typeof src.semanas === 'object') {
         Object.keys(src.semanas).forEach(function (k) {
@@ -235,7 +236,7 @@
   }
 
   /* ---------- Ajustes ---------- */
-  var AJ = { sInstr: 'instrucciones', sEdad: 'edad', sAlergias: 'alergias', sAversiones: 'aversiones', sPediatra: 'pediatra', sTope: 'tope', sDesayuno: 'desayunoMeriendaG', sTiempo: 'tiempo' };
+  var AJ = { sInstr: 'instrucciones', sEdad: 'edad', sAlergias: 'alergias', sAversiones: 'aversiones', sPediatra: 'pediatra', sTope: 'tope', sTiempo: 'tiempo' };
   function renderSettings() {
     Object.keys(AJ).forEach(function (id) { $('#' + id).value = state.settings[AJ[id]] == null ? '' : state.settings[AJ[id]]; });
     renderClave();
@@ -425,7 +426,6 @@
   function buildPrompt(texto, nota, nFotos) {
     var s = state.settings;
     var tope = numOr(s.tope, 16);
-    var dm = numOr(s.desayunoMeriendaG, 0);
     var hoy = new Date().toLocaleDateString('es-ES', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
     var dias = DIAS.map(function (n, i) {
       var casa = i >= 5 || festivos.has(i);
@@ -454,13 +454,12 @@
       'SEMANA A PLANIFICAR:\n' + dias,
       'DATOS DE LA NIÑA:\n- Alergias e intolerancias: ' + (s.alergias || 'ninguna indicada') +
         '\n- Alimentos que rechaza: ' + (s.aversiones || 'ninguno indicado') +
-        '\n- Proteína animal fija de desayuno y merienda (lácteos, huevo, embutido): ' + dm + ' g al día. Ya cuenta dentro del tope; no la sumes en tus platos.' +
         '\n- Tiempo para cocinar entre semana: ' + (s.tiempo || 'no indicado') +
         '\n- Indicaciones del pediatra: ' + (s.pediatra || 'ninguna indicada'),
       'REGLAS, POR ORDEN DE PRIORIDAD:\n' +
         '1. Seguridad: respeta alergias y aversiones; texturas adecuadas a la edad (nada de frutos secos enteros, uvas o cerezas sin trocear, ni trozos duros crudos); sin pescados grandes con riesgo de mercurio (pez espada, tintorera, atún rojo, lucio); poca sal; sin miel.\n' +
-        '2. Tope de proteína animal: ' + tope + ' g como máximo al día, sumando colegio, comida, cena y desayuno/merienda fijos. Proteína animal es la de carne, pescado, huevo y lácteos. Estima los gramos con raciones propias de la edad y valores de composición reconocidos (por ejemplo BEDCA) o el etiquetado. Del colegio no se conocen las raciones: estima una ración infantil estándar y devuelve igualmente un número. Si el colegio ya llega o casi llega al tope, pon una cena sin proteína animal.\n' +
-        '3. Si la comida (del colegio o de casa) lleva proteína animal, la cena prioriza la proteína vegetal (legumbres, cereales integrales, tofu, cremas de frutos secos o semillas molidas). Si la comida ya es vegetal, la cena puede llevar una ración pequeña animal sin pasar del tope.\n' +
+        '2. Tope de proteína animal: ' + tope + ' g como máximo al día, sumando colegio, comida y cena (el desayuno y la merienda no se cuentan). Proteína animal es la de carne, pescado, huevo y lácteos. Estima los gramos con raciones propias de la edad y valores de composición reconocidos (por ejemplo BEDCA) o el etiquetado. Del colegio no se conocen las raciones: estima una ración infantil estándar y devuelve igualmente un número. Si el colegio ya llega o casi llega al tope, pon una cena sin proteína animal.\n' +
+        '3. Proteína animal por la noche: la cena también puede incluir proteína animal, principalmente carne de pollo, cerdo o vaca (o similares), en ración pequeña adecuada a la edad y siempre dentro del tope diario. Si la comida del mismo día (del colegio o de casa) ya lleva proteína animal, la cena prioriza la proteína vegetal (legumbres, cereales integrales, tofu, cremas de frutos secos o semillas molidas), pero eso no excluye la carne: si el total del día cabe en el tope, puede haber carne en la cena. A lo largo de la semana alterna cenas de base vegetal con varias cenas con carne (por ejemplo 2 o 3), variando entre pollo, cerdo y vaca (o similares), siempre que el tope lo permita.\n' +
         '4. Complementa el menú del colegio: no repitas su ingrediente principal ni su técnica de cocinado el mismo día ni el día siguiente. Equilibra la semana entre verdura, fruta, legumbres, cereales, pescado, huevo y carne.\n' +
         '5. Sin repeticiones entre semanas: no repitas de una semana a la siguiente ningún plato, ni una variante del mismo con otro nombre (mismo ingrediente principal y misma preparación), ni un menú diario completo. Entre dos apariciones del mismo plato debe pasar al menos una semana completa. Se aplica a la semana anterior y a la siguiente si ya están guardadas, también a los platos modelo, y dentro de la misma semana tampoco repitas platos.\n' +
         '6. Fruta y verdura de temporada en España según el mes de las fechas de la semana. Si dudas de la temporada de un producto, dilo.\n' +
@@ -478,7 +477,7 @@
         '    "dia": "Lunes", "fecha": "AAAA-MM-DD",\n' +
         '    "cole": {"plato": "lo que se lee en el menú del colegio", "proteina_animal_g": 7.5},\n' +
         '    "comida": null,\n' +
-        '    "cena": { "nombre": "", "ingredientes": ["200 g de calabaza"], "elaboracion": "dos o tres líneas", "proteina_animal_g": 0, "base_vegetal": true, "nota": "textura o seguridad, opcional" },\n' +
+        '    "cena": { "nombre": "", "ingredientes": ["cantidad y alimento"], "elaboracion": "dos o tres líneas", "proteina_animal_g": <número>, "base_vegetal": <true o false>, "nota": "textura o seguridad, opcional" },\n' +
         '    "temporada": ["calabaza", "mandarina"]\n' +
         '  } ],\n' +
         '  "comprobaciones": [ {"regla": "Tope de proteína animal", "cumple": true, "detalle": "una frase"} ],\n' +
@@ -486,7 +485,7 @@
         '  "suposiciones": ["..."],\n' +
         '  "preguntas": ["..."]\n' +
         '}\n' +
-        'Incluye los 7 días en orden. En los días con colegio "comida" es null y "cole" lleva el plato del colegio; en los días en casa "cole" es null y "comida" tiene la misma forma que "cena". Los gramos son números con punto decimal. En "comprobaciones" incluye al menos: tope de proteína animal, relación comida/cena, complemento del colegio, temporada, ausencia de ultraprocesados y azúcares, ' + (instr ? 'sin repeticiones entre semanas, seguridad de texturas y cumplimiento de las instrucciones generales.' : 'sin repeticiones entre semanas y seguridad de texturas.')
+        'Incluye los 7 días en orden. En los días con colegio "comida" es null y "cole" lleva el plato del colegio; en los días en casa "cole" es null y "comida" tiene la misma forma que "cena". Los gramos son números con punto decimal: 0 solo si el plato no lleva proteína animal; si lleva carne, pescado, huevo o lácteos, los gramos estimados. "base_vegetal" es true solo si el plato no lleva proteína animal. En "comprobaciones" incluye al menos: tope de proteína animal, relación comida/cena, complemento del colegio, temporada, ausencia de ultraprocesados y azúcares, ' + (instr ? 'sin repeticiones entre semanas, seguridad de texturas y cumplimiento de las instrucciones generales.' : 'sin repeticiones entre semanas y seguridad de texturas.')
     ].filter(Boolean).join('\n\n');
   }
 
@@ -616,11 +615,11 @@
     box.append(h('div', { class: 'chips' }, chip('Proteína animal ' + fmtG(p.g)), p.vegetal ? chip('Base vegetal', 'ok') : null));
     return box;
   }
-  function dayTotal(x, dm) { return ((x.cole && x.cole.g) || 0) + ((x.comida && x.comida.g) || 0) + ((x.cena && x.cena.g) || 0) + dm; }
+  function dayTotal(x) { return ((x.cole && x.cole.g) || 0) + ((x.comida && x.comida.g) || 0) + ((x.cena && x.cena.g) || 0); }
 
   // Tarjeta de un día: la usan la vista de la semana y el calendario.
-  function tarjetaDia(x, dm, tope) {
-    var total = dayTotal(x, dm);
+  function tarjetaDia(x, tope) {
+    var total = dayTotal(x);
     var ratio = tope > 0 ? total / tope : 0;
     var kind = ratio > 1 ? 'bad' : ratio > 0.85 ? 'warn' : '';
     var stateTxt = ratio > 1 ? 'Supera el tope' : ratio > 0.85 ? 'Cerca del tope' : 'Dentro del tope';
@@ -636,9 +635,6 @@
     if (x.cole) {
       card.append(h('div', { class: 'meal cole' }, h('div', { class: 'meal-label', text: 'Colegio (comida)' }),
         h('div', { class: 'meal-name', text: x.cole.nombre || 'Sin leer' }), h('div', { class: 'chips' }, chip('Estimado ' + fmtG(x.cole.g)))));
-    }
-    if (dm > 0) {
-      card.append(h('div', { class: 'meal cole' }, h('div', { class: 'meal-label', text: 'Desayuno y merienda (ajustes)' }), h('div', { class: 'chips' }, chip(fmtG(dm)))));
     }
     if (x.comida) card.append(mealBlock('Comida', x.comida));
     if (x.cena) card.append(mealBlock('Cena', x.cena));
@@ -660,16 +656,18 @@
     }
     var res = g.resultado;
     var tope = numOr(state.settings.tope, 16);
-    var dm = numOr(state.settings.desayunoMeriendaG, 0);
-    var over = res.dias.filter(function (x) { return dayTotal(x, dm) > tope; });
+    var over = res.dias.filter(function (x) { return dayTotal(x) > tope; });
     var gen = g.generado ? new Date(g.generado) : null;
     var cuando = 'Semana del ' + dfDia.format(weekStart) + ' al ' + dfDia.format(dayDate(6)) +
       (gen && !isNaN(gen.getTime()) ? ' · generado el ' + dfCorto.format(gen) : '');
 
+    var cenas = res.dias.filter(function (x) { return x.cena; });
+    var cenasCon = cenas.filter(function (x) { return (x.cena.g || 0) > 0; }).length;
     box.append(h('div', { class: 'res-head' },
       h('h2', { text: 'Menú de la semana' }),
       h('p', { class: 'when', text: cuando }),
-      res.resumen ? h('p', { text: res.resumen }) : null));
+      res.resumen ? h('p', { text: res.resumen }) : null,
+      h('p', { class: 'hint', text: 'Cenas con proteína animal esta semana: ' + cenasCon + ' de ' + cenas.length + '.' })));
 
     if (res.preguntas.length) {
       box.append(h('div', { class: 'estado warn', style: 'margin-top:12px' }, h('b', { text: 'Antes de usar este menú' }),
@@ -685,12 +683,9 @@
         h('p', { text: 'Estos platos ya aparecen en la semana anterior o en la siguiente. Conviene dejar al menos una semana entre repeticiones; prueba con «Generar otra versión».' }),
         h('ul', { class: 'plain' }, rep.map(function (r) { return h('li', { text: r.nombre + ' (también en ' + r.donde + ')' }); }))));
     }
-    if (dm === 0) {
-      box.append(h('div', { class: 'estado', style: 'margin-top:12px' }, 'La proteína de desayuno y merienda está en 0 g. Si toma lácteos o huevo, indícalo en Ajustes para que el total sea real.'));
-    }
 
     var list = h('div', { style: 'display:grid;gap:16px;margin-top:16px' });
-    res.dias.forEach(function (x) { list.append(tarjetaDia(x, dm, tope)); });
+    res.dias.forEach(function (x) { list.append(tarjetaDia(x, tope)); });
     box.append(list);
 
     var armed = false, t = null;
@@ -710,7 +705,7 @@
       }
     });
     box.append(h('div', { class: 'row', style: 'margin-top:16px' },
-      h('button', { class: 'btn secondary', type: 'button', text: 'Copiar menú', onclick: function (e) { copiar(textoMenu(res, dm), e.currentTarget, '#copiaMsg'); } }),
+      h('button', { class: 'btn secondary', type: 'button', text: 'Copiar menú', onclick: function (e) { copiar(textoMenu(res), e.currentTarget, '#copiaMsg'); } }),
       h('button', { class: 'btn line', type: 'button', text: 'Generar otra versión', onclick: function () { generar(); } }),
       borrar));
     box.append(h('p', { class: 'hint', id: 'copiaMsg', role: 'status' }));
@@ -734,16 +729,16 @@
     if (scroll) box.scrollIntoView({ behavior: matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth', block: 'start' });
   }
 
-  function textoDia(x, dm) {
+  function textoDia(x) {
     var out = [x.dia.toUpperCase() + (x.fecha ? ' (' + x.fecha + ')' : '')];
     if (x.cole) out.push('Cole: ' + x.cole.nombre);
     if (x.comida) out.push('Comida: ' + x.comida.nombre + (x.comida.ingredientes.length ? ' — ' + x.comida.ingredientes.join(', ') : ''));
     if (x.cena) out.push('Cena: ' + x.cena.nombre + (x.cena.ingredientes.length ? ' — ' + x.cena.ingredientes.join(', ') : ''));
-    out.push('Proteína animal del día: ' + fmtG(dayTotal(x, dm)));
+    out.push('Proteína animal del día: ' + fmtG(dayTotal(x)));
     return out.join('\n');
   }
-  function textoMenu(res, dm) {
-    return 'MENÚ DE LA SEMANA\n\n' + res.dias.map(function (x) { return textoDia(x, dm); }).join('\n\n');
+  function textoMenu(res) {
+    return 'MENÚ DE LA SEMANA\n\n' + res.dias.map(function (x) { return textoDia(x); }).join('\n\n');
   }
   function textoCompra(res) {
     var out = ['LISTA DE LA COMPRA'];
@@ -787,7 +782,6 @@
     var box = $('#calendario');
     box.textContent = '';
     var tope = numOr(state.settings.tope, 16);
-    var dm = numOr(state.settings.desayunoMeriendaG, 0);
     var hoy = isoDate(new Date());
 
     var cab = h('div', { class: 'cal-head' },
@@ -822,10 +816,10 @@
     var x = menuDelDia(calSel);
     var det = h('div', { class: 'cal' }, h('h2', { text: mayus(dfLargo.format(selFecha)) }));
     if (x) {
-      det.append(tarjetaDia(x, dm, tope));
+      det.append(tarjetaDia(x, tope));
       det.append(h('div', { class: 'row' },
         h('button', { class: 'btn secondary small', type: 'button', text: 'Ver semana completa', onclick: function () { abrirSemana(selFecha); } }),
-        h('button', { class: 'btn line small', type: 'button', text: 'Copiar este día', onclick: function (e) { copiar(textoDia(x, dm), e.currentTarget, '#copiaMsgCal'); } })));
+        h('button', { class: 'btn line small', type: 'button', text: 'Copiar este día', onclick: function (e) { copiar(textoDia(x), e.currentTarget, '#copiaMsgCal'); } })));
       det.append(h('p', { class: 'hint', id: 'copiaMsgCal', role: 'status' }));
     } else {
       det.append(h('div', { class: 'block' },
