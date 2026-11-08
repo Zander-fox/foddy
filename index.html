@@ -70,6 +70,7 @@
       <div>
         <label class="lbl" for="notaSemana">Algo que tener en cuenta esta semana (opcional)</label>
         <textarea id="notaSemana" placeholder="Por ejemplo: esta semana ha comido poco pescado, el viernes cenamos fuera…"></textarea>
+        <p class="hint">Tiene prioridad sobre las instrucciones generales y las reglas fijas cuando las contradiga. Se guarda con la semana.</p>
       </div>
       <div class="instr-aviso">
         <p class="hint" id="instrResumen"></p>
@@ -126,7 +127,7 @@
     </div>
     <div class="block">
       <h2>Instrucciones generales</h2>
-      <p class="hint">Escribe aquí lo que Foddy debe tener siempre en cuenta al crear cualquier menú: preferencias, costumbres de la casa, cosas que evitar… Se aplican en todas las semanas, junto con las reglas fijas.</p>
+      <p class="hint">Escribe aquí lo que Foddy debe tener siempre en cuenta al crear cualquier menú: preferencias, costumbres de la casa, cosas que evitar… Se aplican en todas las semanas, junto con las reglas fijas. La nota de cada semana (en Menú) prevalece sobre ellas cuando las contradiga.</p>
       <div>
         <label class="lbl" for="sInstr">Instrucciones</label>
         <textarea id="sInstr" maxlength="6000" placeholder="Por ejemplo: cenas de máximo 25 minutos. Pescado al menos dos veces por semana. Verdura en todas las cenas. Evitar los fritos."></textarea>
@@ -167,17 +168,18 @@
     <div class="block">
       <h2>Reglas fijas</h2>
       <ul class="plain">
+        <li>La nota de la semana (en Menú) tiene prioridad sobre las instrucciones generales y sobre estas reglas cuando las contradiga.</li>
         <li>De lunes a viernes con cole, solo cena. Sábados, domingos y festivos, comida y cena.</li>
         <li>Si la comida lleva proteína animal, la cena prioriza la proteína vegetal, sin excluir la carne si cabe en el tope.</li>
-        <li>Por la noche también puede haber proteína animal, sobre todo carne de pollo, cerdo o vaca (o similares), en ración pequeña y dentro del tope diario.</li>
+        <li>Por la noche también puede haber proteína animal, sobre todo carne de pollo, cerdo o vaca (o similares) y pescados, en ración pequeña y dentro del tope diario.</li>
         <li>Fruta y verdura de temporada, sin ultraprocesados, azúcares añadidos ni edulcorantes.</li>
         <li>No se repiten platos ni menús de una semana a la siguiente: mínimo una semana de descanso entre repeticiones.</li>
-        <li>Texturas seguras para la edad y sin pescados grandes con riesgo de mercurio.</li>
+        <li>Sin pescados grandes con riesgo de mercurio.</li>
       </ul>
     </div>
     <div class="block">
       <h2>Copia de seguridad</h2>
-      <p class="hint">Guarda tus ajustes, platos modelo y último menú en un texto que puedes pegar en una nota. No incluye la clave de API.</p>
+      <p class="hint">Guarda tus ajustes, platos modelo y menús guardados en un texto que puedes pegar en una nota. No incluye la clave de API.</p>
       <div class="row">
         <button class="btn secondary" id="btnCopiaGuardar" type="button">Copiar copia de seguridad</button>
       </div>

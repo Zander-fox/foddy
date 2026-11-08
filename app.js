@@ -102,10 +102,13 @@
   function dayDate(i) { var d = new Date(weekStart); d.setDate(d.getDate() + i); return d; }
   function semanaIso() { return isoDate(weekStart); }
   // Cambia la semana de trabajo y recupera sus festivos si ya tiene un menú guardado.
+  var notaCargada = false;
   function seleccionarSemana(d) {
+    var anterior = semanaIso();
     weekStart = mondayOf(d);
     var g = state.semanas[isoDate(weekStart)];
     festivos = new Set(g ? arr(g.festivos) : []);
+    if (!notaCargada || semanaIso() !== anterior) { $('#notaSemana').value = g ? str(g.nota) : ''; notaCargada = true; }
   }
   function platosDeSemana(iso) {
     var g = state.semanas[iso];
@@ -443,6 +446,8 @@
     rep.previas.forEach(function (x) { lineasHist.push('- Hace ' + x.hace + ' semanas (pueden volver a aparecer, pero prioriza la variedad): ' + x.platos.join('; ')); });
     var hist = lineasHist.length ? lineasHist.join('\n') : '(no hay semanas guardadas alrededor de esta)';
     var instr = (s.instrucciones || '').trim();
+    var comprobar = 'tope de proteína animal, relación comida/cena, complemento del colegio, temporada, ausencia de ultraprocesados y azúcares, sin repeticiones entre semanas' +
+      (instr ? ', cumplimiento de las instrucciones generales' : '') + (nota ? ', cumplimiento de la nota de la semana' : '') + '.';
     var cole = '';
     if (nFotos) cole += 'Se adjuntan ' + nFotos + ' imagen(es) con el menú del colegio de esta semana. Léelas con atención y no completes con suposiciones lo que no se lea.\n';
     if (texto) cole += 'Texto del menú del colegio:\n' + texto + '\n';
@@ -456,20 +461,21 @@
         '\n- Alimentos que rechaza: ' + (s.aversiones || 'ninguno indicado') +
         '\n- Tiempo para cocinar entre semana: ' + (s.tiempo || 'no indicado') +
         '\n- Indicaciones del pediatra: ' + (s.pediatra || 'ninguna indicada'),
+      'JERARQUÍA CUANDO HAYA CONTRADICCIONES: 1.º la nota de la familia para esta semana, si existe; 2.º las reglas 1 (seguridad) y 2 (tope de proteína animal); 3.º las instrucciones generales, si existen; 4.º el resto de reglas (3 a 8). Cuando una prioridad superior cambie lo que dicen las reglas o las instrucciones generales, explícalo en "suposiciones".',
       'REGLAS, POR ORDEN DE PRIORIDAD:\n' +
-        '1. Seguridad: respeta alergias y aversiones; texturas adecuadas a la edad (nada de frutos secos enteros, uvas o cerezas sin trocear, ni trozos duros crudos); sin pescados grandes con riesgo de mercurio (pez espada, tintorera, atún rojo, lucio); poca sal; sin miel.\n' +
+        '1. Seguridad: respeta alergias y aversiones; sin pescados grandes con riesgo de mercurio (pez espada, tintorera, atún rojo, lucio); poca sal; sin miel.\n' +
         '2. Tope de proteína animal: ' + tope + ' g como máximo al día, sumando colegio, comida y cena (el desayuno y la merienda no se cuentan). Proteína animal es la de carne, pescado, huevo y lácteos. Estima los gramos con raciones propias de la edad y valores de composición reconocidos (por ejemplo BEDCA) o el etiquetado. Del colegio no se conocen las raciones: estima una ración infantil estándar y devuelve igualmente un número. Si el colegio ya llega o casi llega al tope, pon una cena sin proteína animal.\n' +
-        '3. Proteína animal por la noche: la cena también puede incluir proteína animal, principalmente carne de pollo, cerdo o vaca (o similares), en ración pequeña adecuada a la edad y siempre dentro del tope diario. Si la comida del mismo día (del colegio o de casa) ya lleva proteína animal, la cena prioriza la proteína vegetal (legumbres, cereales integrales, tofu, cremas de frutos secos o semillas molidas), pero eso no excluye la carne: si el total del día cabe en el tope, puede haber carne en la cena. A lo largo de la semana alterna cenas de base vegetal con varias cenas con carne (por ejemplo 2 o 3), variando entre pollo, cerdo y vaca (o similares), siempre que el tope lo permita.\n' +
+        '3. Proteína animal por la noche: la cena también puede incluir proteína animal, principalmente carne de pollo, cerdo o vaca (o similares) y pescados (sin riesgo de mercurio, según la regla 1), en ración pequeña adecuada a la edad y siempre dentro del tope diario. Si la comida del mismo día (del colegio o de casa) ya lleva proteína animal, la cena prioriza la proteína vegetal (legumbres, cereales integrales, tofu, cremas de frutos secos o semillas molidas), pero eso no excluye la carne ni el pescado: si el total del día cabe en el tope, puede haber carne o pescado en la cena. A lo largo de la semana alterna cenas de base vegetal con varias cenas con carne o pescado (por ejemplo 2 o 3), variando entre pollo, cerdo, vaca (o similares) y pescados, siempre que el tope lo permita.\n' +
         '4. Complementa el menú del colegio: no repitas su ingrediente principal ni su técnica de cocinado el mismo día ni el día siguiente. Equilibra la semana entre verdura, fruta, legumbres, cereales, pescado, huevo y carne.\n' +
         '5. Sin repeticiones entre semanas: no repitas de una semana a la siguiente ningún plato, ni una variante del mismo con otro nombre (mismo ingrediente principal y misma preparación), ni un menú diario completo. Entre dos apariciones del mismo plato debe pasar al menos una semana completa. Se aplica a la semana anterior y a la siguiente si ya están guardadas, también a los platos modelo, y dentro de la misma semana tampoco repitas platos.\n' +
         '6. Fruta y verdura de temporada en España según el mes de las fechas de la semana. Si dudas de la temporada de un producto, dilo.\n' +
         '7. Sin ultraprocesados (NOVA 4: embutidos, salchichas, nuggets, galletas, cereales azucarados, zumos envasados, yogures de sabores, salsas comerciales, caldos concentrados), sin azúcares añadidos y sin edulcorantes. Endulza solo con la propia fruta.\n' +
         '8. Usa los platos modelo como inspiración de sabores y texturas, sin repetir el mismo más de una vez por semana. Si alguno incumple una regla, adáptalo y avísalo en "suposiciones".',
-      instr ? 'INSTRUCCIONES GENERALES DE LA FAMILIA (tenlas siempre en cuenta al crear cualquier menú). Si alguna choca con la seguridad (regla 1) o con el tope de proteína animal (regla 2), prevalecen esas dos reglas; si choca con cualquier otra regla, prevalece esta instrucción. En ambos casos avisa del conflicto en "suposiciones".\n' + instr : '',
+      instr ? 'INSTRUCCIONES GENERALES DE LA FAMILIA (tenlas siempre en cuenta al crear cualquier menú). Si alguna choca con la seguridad (regla 1) o con el tope de proteína animal (regla 2), prevalecen esas dos reglas; si choca con cualquier otra regla, prevalece esta instrucción. En ambos casos avisa del conflicto en "suposiciones". La nota de la familia para esta semana, si existe, prevalece sobre todo esto.\n' + instr : '',
       'PLATOS MODELO DE LA FAMILIA:\n' + modelos,
       'PLATOS DE LAS SEMANAS GUARDADAS ALREDEDOR DE ESTA:\n' + hist,
       'MENÚ DEL COLEGIO:\n' + cole,
-      nota ? 'NOTA DE LA FAMILIA PARA ESTA SEMANA:\n' + nota : '',
+      nota ? 'NOTA DE LA FAMILIA PARA ESTA SEMANA (máxima prioridad: si contradice las instrucciones generales o cualquiera de las reglas, incluidas la 1 y la 2, cumple la nota y explica en "suposiciones" qué has cambiado. Única excepción: las alergias e intolerancias de DATOS DE LA NIÑA siguen vigentes; si la nota las contradice, no la apliques en ese punto y plantea la duda en "preguntas"):\n' + nota : '',
       'FORMATO DE LA RESPUESTA: responde SOLO con un objeto JSON, sin texto antes ni después, con esta forma:\n' +
         '{\n' +
         '  "resumen": "2 o 3 frases sobre la lógica de la semana",\n' +
@@ -477,7 +483,7 @@
         '    "dia": "Lunes", "fecha": "AAAA-MM-DD",\n' +
         '    "cole": {"plato": "lo que se lee en el menú del colegio", "proteina_animal_g": 7.5},\n' +
         '    "comida": null,\n' +
-        '    "cena": { "nombre": "", "ingredientes": ["cantidad y alimento"], "elaboracion": "dos o tres líneas", "proteina_animal_g": <número>, "base_vegetal": <true o false>, "nota": "textura o seguridad, opcional" },\n' +
+        '    "cena": { "nombre": "", "ingredientes": ["cantidad y alimento"], "elaboracion": "dos o tres líneas", "proteina_animal_g": <número>, "base_vegetal": <true o false>, "nota": "comentario breve, opcional" },\n' +
         '    "temporada": ["calabaza", "mandarina"]\n' +
         '  } ],\n' +
         '  "comprobaciones": [ {"regla": "Tope de proteína animal", "cumple": true, "detalle": "una frase"} ],\n' +
@@ -485,7 +491,7 @@
         '  "suposiciones": ["..."],\n' +
         '  "preguntas": ["..."]\n' +
         '}\n' +
-        'Incluye los 7 días en orden. En los días con colegio "comida" es null y "cole" lleva el plato del colegio; en los días en casa "cole" es null y "comida" tiene la misma forma que "cena". Los gramos son números con punto decimal: 0 solo si el plato no lleva proteína animal; si lleva carne, pescado, huevo o lácteos, los gramos estimados. "base_vegetal" es true solo si el plato no lleva proteína animal. En "comprobaciones" incluye al menos: tope de proteína animal, relación comida/cena, complemento del colegio, temporada, ausencia de ultraprocesados y azúcares, ' + (instr ? 'sin repeticiones entre semanas, seguridad de texturas y cumplimiento de las instrucciones generales.' : 'sin repeticiones entre semanas y seguridad de texturas.')
+        'Incluye los 7 días en orden. En los días con colegio "comida" es null y "cole" lleva el plato del colegio; en los días en casa "cole" es null y "comida" tiene la misma forma que "cena". Los gramos son números con punto decimal: 0 solo si el plato no lleva proteína animal; si lleva carne, pescado, huevo o lácteos, los gramos estimados. "base_vegetal" es true solo si el plato no lleva proteína animal. En "comprobaciones" incluye al menos: ' + comprobar
     ].filter(Boolean).join('\n\n');
   }
 
@@ -585,7 +591,7 @@
       content.push({ type: 'text', text: instrucciones });
       var respuesta = await pedirMenu(content, ctl.signal, function (n) { if (setBusy.onProgreso) setBusy.onProgreso(n); });
       var res = anclar(normalizar(extraerJson(respuesta)), inicio);
-      state.semanas[semana] = { generado: new Date().toISOString(), festivos: fest, resultado: res };
+      state.semanas[semana] = { generado: new Date().toISOString(), festivos: fest, nota: nota, resultado: res };
       podarSemanas();
       touch();
       seleccionarSemana(inicio);
@@ -849,6 +855,7 @@
       var j = JSON.parse($('#copiaTexto').value.trim());
       if (!j || j.app !== 'foddy' || !j.datos) throw new Error('formato');
       state = merge(j.datos);
+      notaCargada = false;
       flush();
       seleccionarSemana(weekStart);
       renderAll();
